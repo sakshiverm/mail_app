@@ -1,8 +1,9 @@
 class ProductsController < ApplicationController
+  include JsonWebToken
+  before_action :authenticate_user 
 
   def index
-    @product = Product.all
-    render json: @product
+    @products = Product.all
   end
 
   def create  
@@ -17,6 +18,16 @@ class ProductsController < ApplicationController
   end
 
   private
+  def authenticate_user
+    header = request.headers['Authorization']
+    token = header.split(' ').last if header.present?
+    begin
+      decoded = JWT.decode(token, Rails.application.secrets.secret_key_base, true, algorithm: 'HS256')
+      @current_user_id = decoded[0]['user_id']
+    rescue JWT::ExpiredSignature, JWT::VerificationError, JWT::DecodeError
+      render json: { error: 'Unauthorized access' }, status: :unauthorized
+    end
+  end
 
   def product_params
     params.require(:product).permit(:name, :description, :price)
